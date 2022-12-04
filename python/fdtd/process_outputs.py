@@ -243,6 +243,15 @@ class ProcessOutputs:
         Nfft = 2**iceil(log2(Nt_f))
         fv = np.arange(np.int_(Nfft//2)+1)/Nfft*Fs_f
 
+#        print("---------------\n\n----------------")
+#        print(np.shape(r_out_f))
+#        print(Nt_f)
+#        print(Ts_f)
+#        print(Fs_f)
+#        print(np.shape(tv))
+#        print(Nfft)
+#        print(np.shape(fv))
+#        print("---------------\n\n----------------")
         fig = plt.figure()
         ax = fig.add_subplot(2, 1, 1)
         for i in range(r_out_f.shape[0]):
@@ -252,9 +261,12 @@ class ProcessOutputs:
         ax.set_xlabel('time (s)')
         ax.grid(which='both', axis='both')
         ax.legend()
-
-        ax = fig.add_subplot(2, 1, 2)
+#
+#        ax = fig.add_subplot(2, 1, 2)
         r_out_f_fft_dB = 20*log10(np.abs(rfft(r_out_f,Nfft,axis=-1))+np.spacing(1))
+#        print("---------------\n\n----------------")
+#        print(np.shape(r_out_f_fft_dB))
+#        print("---------------\n\n----------------")
         dB_max = np.max(r_out_f_fft_dB)
         for i in range(r_out_f.shape[0]):
             ax.plot(fv,r_out_f_fft_dB[i],linestyle='-',label=f'R{i+1}')
@@ -267,6 +279,18 @@ class ProcessOutputs:
         ax.set_xlim((1,Fs_f/2))
         ax.grid(which='both', axis='both')
         ax.legend()
+
+    def get_loudness(self):
+        r_out_f = self.r_out_f
+        Nt_f = self.Nt_f
+        Ts_f = self.Ts_f
+        Fs_f = self.Fs_f
+        tv = np.arange(Nt_f)*Ts_f
+        Nfft = 2**iceil(log2(Nt_f))
+        fv = np.arange(np.int_(Nfft//2)+1)/Nfft*Fs_f
+        r_out_f_fft_dB = 20*log10(np.abs(rfft(r_out_f,Nfft,axis=-1))+np.spacing(1))
+        dB_max = np.max(r_out_f_fft_dB)
+        return dB_max
 
     def show_plots(self):
         plt.show()
