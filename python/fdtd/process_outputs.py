@@ -28,6 +28,125 @@ from air_abs.modal_filter import apply_modal_filter
 from air_abs.ola_filter import apply_ola_filter
 from common.myfuncs import wavwrite,iceil,iround
 
+third_octave_bands = [
+    {
+        "fmin": 14.1, 
+        "fmid": 16,
+        "fmax": 17.8
+    },
+    {
+        "fmin": 17.8, 
+        "fmid": 20,
+        "fmax": 22.4
+    },
+    {
+        "fmin": 22.4, 
+        "fmid": 25,
+        "fmax": 28.2
+    },
+    {
+        "fmin": 28.2,
+        "fmid": 31.5, 
+        "fmax": 35.5
+    },
+    {
+        "fmin": 35.5,
+        "fmid": 40, 
+        "fmax": 44.7
+    },
+    {
+        "fmin": 44.7,
+        "fmid": 50, 
+        "fmax": 56.2
+    },
+    {
+        "fmin": 56.2,
+        "fmid": 63, 
+        "fmax": 70.8
+    },
+    {
+        "fmin": 70.8,
+        "fmid": 80, 
+        "fmax": 89.1
+    },
+    {
+        "fmin": 89.1,
+        "fmid": 100, 
+        "fmax": 112
+    },
+    {
+        "fmin": 112,
+        "fmid": 125, 
+        "fmax": 141
+    },
+    {
+        "fmin": 141,
+        "fmid": 160, 
+        "fmax": 178
+    },
+    {
+        "fmin": 178,
+        "fmid": 200, 
+        "fmax": 224
+    },
+    {
+        "fmin": 224,
+        "fmid": 250, 
+        "fmax": 282
+    },
+    {
+        "fmin": 282,
+        "fmid": 315, 
+        "fmax": 355
+    },
+    {
+        "fmin": 355,
+        "fmid": 400, 
+        "fmax": 447
+    },
+    {
+        "fmin": 447,
+        "fmid": 500, 
+        "fmax": 562
+    },
+    {
+        "fmin": 562,
+        "fmid": 630, 
+        "fmax": 708
+    },
+    {
+        "fmin": 708,
+        "fmid": 800, 
+        "fmax": 891
+    },
+    {
+        "fmin": 891,
+        "fmid": 1000, 
+        "fmax": 1122
+    },
+    {
+        "fmin": 1122,
+        "fmid": 1250, 
+        "fmax": 1413
+    },
+    {
+        "fmin": 1413,
+        "fmid": 1600, 
+        "fmax": 1778
+    },
+    {
+        "fmin": 1778,
+        "fmid": 2000, 
+        "fmax": 2239
+    },
+    {
+        "fmin": 2239,
+        "fmid": 2500, 
+        "fmax": 2818
+    }
+]
+
+
 #class to process sim_outs.h5 file
 class ProcessOutputs: 
     def __init__(self,data_dir):
@@ -279,6 +398,38 @@ class ProcessOutputs:
         ax.set_xlim((1,Fs_f/2))
         ax.grid(which='both', axis='both')
         ax.legend()
+
+    def compute_diffusion_coeffs(self, fmin=20, fmax=2000):
+        # TODO: subtract original signal first
+        # TODO: normalize by a planar surface
+        r_out_f = self.r_out_f
+        Nt_f = self.Nt_f
+        Ts_f = self.Ts_f
+        Fs_f = self.Fs_f
+        tv = np.arange(Nt_f)*Ts_f
+        Nfft = 2**iceil(log2(Nt_f))
+        fv = np.arange(np.int_(Nfft//2)+1)/Nfft*Fs_f
+        r_out_f_fft_dB = 20*log10(np.abs(rfft(r_out_f,Nfft,axis=-1))+np.spacing(1))
+        m = np.shape(r_out_f_fft_dB)[0]
+        diffusion_coeffs = {}
+        for band in third_octave_bands:
+            b_min = band["fmin"]
+            b_max = band["fmax"]
+            b_mid = band["fmid"]
+            if b_max > fmax or b_min < fmin:
+                continue
+            ix = np.argwhere((fv >= b_min) & (fv < b_max))
+            start = ix[0][0] # where the band starts in the fft array
+            end = ix[-1][0] # where the band ends in the fft array
+            band_limited  = r_out_f_fft_dB[:,start:(end+1)] # extracting the band from the decibel results of the fft - should I be adding 1???
+            band_levels = band_limited.sum(axis=1) # sum up the values in the band
+            band_levels_scaled = band_levels / (end-start)
+            band_levels_raised = pow(10,band_levels_scaled/10)
+            band_diffusion = (pow(np.sum(band_levels_raised),2) - \
+                    np.sum(pow(band_levels_raised,2))) / \
+                    ((m-1)*np.sum(pow(band_levels_raised,2)))
+            diffusion_coeffs[str(b_mid)] = band_diffusion
+        return diffusion_coeffs
 
     def get_loudness(self):
         r_out_f = self.r_out_f
